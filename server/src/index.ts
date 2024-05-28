@@ -9,6 +9,7 @@ import { startStandaloneServer } from "@apollo/server/standalone";
 // import gql from "graphql-tag";
 import { buildSchema } from "type-graphql";
 import { UserResolver } from "./UserResolver";
+import { AppDataSource } from "./data-source";
 
 (async () => {
   const app: Application = express();
@@ -29,6 +30,8 @@ import { UserResolver } from "./UserResolver";
   //     },
   //   },
   // };
+
+  await AppDataSource.initialize();
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({ resolvers: [UserResolver] }),
