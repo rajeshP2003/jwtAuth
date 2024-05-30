@@ -1,21 +1,61 @@
-/* eslint-disable */
+import "dotenv/config";
 import "reflect-metadata";
 import express, { Application } from "express";
 import cors from "cors";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
-import { startStandaloneServer } from "@apollo/server/standalone";
+// import { startStandaloneServer } from "@apollo/server/standalone";
 // import { readFileSync } from "fs";
 // import gql from "graphql-tag";
+import cookieParser from "cookie-parser";
 import { buildSchema } from "type-graphql";
 import { UserResolver } from "./UserResolver";
 import { AppDataSource } from "./data-source";
+// import { MyContext } from "./MyContext";
+import { verify } from "jsonwebtoken";
+import { User } from "./entity/User";
+import { createAccessToken, createRefreshToken } from "./auth";
+import { sendRefreshToken } from "./sendRefreshToken";
 
 (async () => {
   const app: Application = express();
   app.use(cors());
   app.use(express.json());
+  app.use(cookieParser());
 
+  app.post("/refresh_token", async (req, res) => {
+    // console.log(req.cookies);
+    const token = req.cookies.jid;
+
+    if (!token) {
+      console.log(`token failed........`);
+      return res.send({ ok: false, accessToken: "" });
+    }
+
+    let payload: any = null;
+
+    try {
+      payload = verify(token, process.env.REFRESH_TOKEN_SECRET!);
+    } catch (err) {
+      console.log(`verification failed........`);
+      console.error(err);
+      return res.send({ ok: false, accessToken: "" });
+    }
+
+    //valid token found
+    //now we send back new accessToken
+    const user = await User.findOne({ where: { id: payload.userId } });
+    console.log(`User id is : ${payload.userId}`);
+    //const user = await User.findOne({ id: payload.userId });    -- this also.
+
+    if (!user) {
+      console.log("User not found");
+      return res.send({ ok: false, accessToken: "" });
+    }
+    // Even creating new Refresh Token and sent to res.cookie
+    sendRefreshToken(res, createRefreshToken(user));
+    return res.send({ ok: true, accessToken: createAccessToken(user) });
+  });
   //Adding graphQL Schema
   // const typeDefs = gql(
   //   readFileSync("schema.graphql", {
@@ -33,15 +73,28 @@ import { AppDataSource } from "./data-source";
 
   await AppDataSource.initialize();
 
+  // console.log(process.env.ACCESS_TOKEN_SECRET);
+  // console.log(process.env.REFRESH_TOKEN_SECRET);
+
   const apolloServer = new ApolloServer({
     schema: await buildSchema({ resolvers: [UserResolver] }),
   });
 
-  await startStandaloneServer(apolloServer);
+  // await startStandaloneServer(apolloServer, {
+  //   context: async ({ req, res }) => ({ req, res }),
+  // });
 
-  app.use("/graphql", expressMiddleware(apolloServer));
+  // app.use("/graphql", expressMiddleware(apolloServer));
+  await apolloServer.start();
 
-  app.get("/", (_req, res) => res.send("Hello"));
+  app.use(
+    "/graphql",
+    cors<cors.CorsRequest>(),
+    express.json(),
+    expressMiddleware(apolloServer, {
+      context: async ({ req, res }) => ({ req, res }),
+    })
+  );
 
   app.listen(5000, () => {
     console.log(`Express server started...`);
