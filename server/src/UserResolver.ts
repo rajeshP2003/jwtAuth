@@ -61,6 +61,34 @@ export class UserResolver {
     return true;
   }
 
+  @Mutation(() => String)
+  async deleteUser(
+    @Arg("email") email: string,
+    @Arg("id", { nullable: true }) id: number
+  ) {
+    let user: any = null;
+    console.log(`id is ${id}`);
+    if (!id) {
+      user = await User.findOne({ where: { id, email } });
+    } else {
+      user = await User.findOne({ where: { email } });
+    }
+
+    if (!user) {
+      throw new Error("Incorrect Credentials. User Not Found.");
+    }
+
+    await User.remove(user);
+
+    return `User - ${email} is Deleted`;
+  }
+
+  @Mutation(() => Boolean)
+  async emptyUsers() {
+    User.clear();
+    return `User table is empty`;
+  }
+
   @Mutation(() => LoginResponse)
   async login(
     @Arg("email") email: string,
@@ -85,11 +113,25 @@ export class UserResolver {
     const refToken: any = createRefreshToken(user);
     sendRefreshToken(res, refToken);
     // res.cookie("jid", refToken, { httpOnly: true });
-    console.log(refToken);
+    console.log(`RefreshToken - ${refToken}`);
 
     //accessToken
     return {
       accessToken: createAccessToken(user),
     };
   }
+
+  // @Query(() => String)
+  // async invalidate(@Ctx() ctx: MyContext) {
+  //   const { payload } = ctx;
+
+  //   if (!payload) {
+  //     throw new Error(`Payload is empty... Login first`);
+  //   }
+
+  //   //you have userID from context.payload
+  //   await invalidateToken(payload.userId);
+
+  //   return "User is logged out";
+  // }
 }
