@@ -45,11 +45,15 @@ import { sendRefreshToken } from "./sendRefreshToken";
     //valid token found
     //now we send back new accessToken
     const user = await User.findOne({ where: { id: payload.userId } });
+
     console.log(`User id is : ${payload.userId}`);
     //const user = await User.findOne({ id: payload.userId });    -- this also.
 
     if (!user) {
       console.log("User not found");
+      return res.send({ ok: false, accessToken: "" });
+    }
+    if (user.tokenVersion !== payload.tokenVersion) {
       return res.send({ ok: false, accessToken: "" });
     }
     // Even creating new Refresh Token and sent to res.cookie

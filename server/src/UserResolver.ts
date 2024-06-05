@@ -121,17 +121,19 @@ export class UserResolver {
     };
   }
 
-  // @Query(() => String)
-  // async invalidate(@Ctx() ctx: MyContext) {
-  //   const { payload } = ctx;
+  @Query(() => String)
+  @UseMiddleware(isAuth)
+  async logout(@Ctx() ctx: MyContext) {
+    const user = await User.findOne({
+      where: { id: Number(ctx.payload!.userId) },
+    });
+    if (!user) {
+      throw new Error(`User is not logged in `);
+    }
+    await User.update(ctx.payload!.userId, {
+      tokenVersion: () => "tokenVersion + 1",
+    });
 
-  //   if (!payload) {
-  //     throw new Error(`Payload is empty... Login first`);
-  //   }
-
-  //   //you have userID from context.payload
-  //   await invalidateToken(payload.userId);
-
-  //   return "User is logged out";
-  // }
+    return `User is logged out.. `;
+  }
 }
